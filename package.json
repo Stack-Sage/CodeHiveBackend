@@ -1,0 +1,35 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "Code Hive Backend ",
+  "keywords": [
+    "code",
+    "hive"
+  ],
+  "homepage": "https://github.com/Stack-Sage/CodeHiveBackend#readme",
+  "bugs": {
+    "url": "https://github.com/Stack-Sage/CodeHiveBackend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Stack-Sage/CodeHiveBackend.git"
+  },
+  "license": "ISC",
+  "author": "adarsh",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "mongoose": "^8.18.1",
+    "prettier": "^3.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
