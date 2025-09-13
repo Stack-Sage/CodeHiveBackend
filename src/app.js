@@ -15,14 +15,20 @@ app.use(express.static("public"))
 
 app.use(cookieParser())   
 
-app.use("/",(req,res)=>{
-   res.send("I'm just a Chill guy!!")
-})
 
 import { userRouter } from './routes/user.routes.js'
 
-app.use("/api/user",userRouter)
+app.use("/api/users",userRouter)
 
+
+app.use((err, req, res, next) => {
+  res.status(err.statusCode || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+    errors: err.errors || [],
+    stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
+  });
+});
 
 
 

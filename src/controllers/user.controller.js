@@ -92,6 +92,7 @@ const registerUser = asyncHandler( async(req, res)=>{
 
 const loginUser = asyncHandler(async (req, res) => {
   
+  
   const { contact, email, password } = req.body;
 
   if (!(contact || email)) {
@@ -206,6 +207,33 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 
+const getAllUsers = asyncHandler(async (req, res) => {
+
+  const users = await User.find().select("-password -refreshToken").sort({createdAt:-1});
+  if (!users) {
+    throw new ApiError(404, "No users found");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, users, "Users fetched Successfully"));
+
+});
+
+const getUserById = asyncHandler(async (req, res) => {
+
+  const userId = req.params.id;
+
+  const user = await User.findById(userId).select("-password -refreshToken");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User fetched Successfully"));
+});
+
 
 
 export {
@@ -213,6 +241,8 @@ export {
    loginUser,
    logoutUser,
    refreshAccessToken,
+   getAllUsers,
+   getUserById,
 
 
 }
