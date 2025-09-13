@@ -9,11 +9,7 @@ async function ConnectDB() {
 
       const result =await mongoose.connect(`${process.env.MONGODB_URI}/${process.env.DB_NAME}`)
 
-      for(let i = 0 ; i < 6 ; i++){
-         for(let j = 0 ; j< 5 ; j++){
-            console.log(" * ")
-         }
-      }
+    
 
       console.log("Mongo DB connected successfully",result.connection.host);
  
