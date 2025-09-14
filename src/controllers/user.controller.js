@@ -26,7 +26,7 @@ const registerUser = asyncHandler( async(req, res)=>{
    console.log(req.body)  
 
 
-  const {fullname,password, email,contact,bio } = req.body;
+  const {fullname,password, email,contact,bio, price } = req.body;
   if ([fullname,bio,password,contact, email, password].some((field) => {
       return field?.trim() === "";
     })
@@ -70,6 +70,7 @@ const registerUser = asyncHandler( async(req, res)=>{
     email,
     password,
     bio,
+    price,
   });
   
   const createdUser = await User.findById(user._id).select(
@@ -235,6 +236,28 @@ const getUserById = asyncHandler(async (req, res) => {
 });
 
 
+const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const findUserByQuery = asyncHandler(async (req, res) => {
+  const raw = (req.params.query ?? req.query.q ?? "").trim();
+  if (!raw) throw new ApiError(400, "Query is required");
+
+  const rx = new RegExp(escapeRegex(raw), "i");
+
+  const users = await User.find({
+    $or: [
+      { fullname: rx },
+      { email: rx },
+      { bio: rx },
+
+    ],
+  })
+    .select("-password -refreshToken")
+    .sort({ createdAt: -1 });
+
+  return res.status(200).json(new ApiResponse(200, users, "Users fetched Successfully"));
+});
+
 
 export {
    registerUser,
@@ -243,6 +266,7 @@ export {
    refreshAccessToken,
    getAllUsers,
    getUserById,
+    findUserByQuery,
 
 
 }

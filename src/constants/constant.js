@@ -4,3 +4,4 @@ export const options = {
     sameSite: "none", // required for cross-domain cookies
     maxAge: 24 * 60 * 60 * 1000,
   };
+
