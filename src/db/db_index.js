@@ -1,30 +1,19 @@
 import mongoose from "mongoose";
 
-let isConnected = false;
 
-async function ConnectDB() {
-  if (isConnected) return;
+async function connectDB(){
 
-  try {
-    mongoose.set("strictQuery", true);
-    mongoose.set("bufferCommands", false); 
+   try {
+      
+      const connectionResponse = await mongoose.connect(`${process.env.MONGODB_URI}/${process.env.DB_NAME}`)
 
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: process.env.DB_NAME,
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 20000,
-    });
-
-    isConnected = true;
-    console.log("MongoDB connected:", conn.connection.host);
-  } catch (error) {
-    console.error("MongoDB connection failed:", {
-      message: error.message,
-      reason: error.reason?.message,
-      code: error.code,
-    });
-    throw error; 
-  }
+      console.log(`MongoDB connected : DB HOST : ${connectionResponse.connection.host}`)
+      
+   } catch (error) {
+      console.log("MONGODB connection error: ",error);
+      process.exit(1)
+   }
 }
 
-export default ConnectDB;
+
+export default connectDB
