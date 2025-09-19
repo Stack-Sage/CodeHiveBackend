@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery } from "../controllers/user.controller.js";
+import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,forgotPassword,verifyOtp,enterNewPassword ,deleteProfile} from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 const userRouter = Router()
@@ -18,5 +18,18 @@ userRouter.route("/logout").post(verifyJWT, logoutUser);
 userRouter.route("/getAll").get(getAllUsers);
 userRouter.route("/get/:id").get(getUserById);
 userRouter.route("/search/:query").get(findUserByQuery);
+
+userRouter.route("/forgot-password").post(verifyJWT, forgotPassword);
+userRouter.route("/verify-otp").post(verifyJWT, verifyOtp);
+userRouter.route("/enter-new-password").patch(verifyJWT, enterNewPassword);
+
+
+userRouter.route("/change-fullname").patch(verifyJWT, changeFullname);
+userRouter.route("/change-password").patch(verifyJWT, changePassword);
+userRouter.route("/change-contact").patch(verifyJWT, changeContact);
+userRouter.route("/change-email").patch(verifyJWT, changeEmail);
+userRouter.route("/change-bio").patch(verifyJWT, changeBio);
+
+userRouter.route("/delete-profile").delete(verifyJWT, deleteProfile);
 
 export {userRouter}

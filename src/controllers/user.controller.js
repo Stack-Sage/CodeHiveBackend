@@ -5,6 +5,7 @@ import { User } from "../models/user.models.js"
 import { options } from "../constants/constant.js";
 import validator from "validator";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
+import { generateOtp } from "../utils/OtpGenerator.js";
 
 const generateAccessRefreshToken = async (userId) => {
   try {
@@ -259,6 +260,208 @@ const findUserByQuery = asyncHandler(async (req, res) => {
 });
 
 
+
+
+
+const changeEmail  = asyncHandler( async (req,res)=>{
+
+  const {email} = req.body;
+  const user = await User.findByIdAndUpdate(req.user._id, 
+    {
+      $set:{
+        email:email 
+      }
+    },
+    {
+      new: true,
+    }
+  )
+
+})
+
+
+const changeContact  = asyncHandler( async (req,res)=>{
+
+  const {contact} = req.body;
+  const user = await User.findByIdAndUpdate(req.user._id, 
+    {
+      $set:{  
+        contact: contact
+      }
+    },
+    {
+      new: true,
+    }
+  )
+
+  if(!user){  
+    throw new ApiError(400, "Unable to update contact");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Contact updated Successfully"));
+})
+
+
+const changeFullname = asyncHandler( async (req,res)=>{
+
+  const {fullname} = req.body;
+  const user = await User.findByIdAndUpdate(req.user._id, 
+    {
+      $set:{
+        fullname: fullname
+      }
+    },
+    {
+      new: true,
+    }
+  )
+
+  if(!user){  
+    throw new ApiError(400, "Unable to update fullname");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Fullname updated Successfully"));
+})
+
+const changeBio = asyncHandler( async (req,res)=>{
+
+  const {bio} = req.body;
+  const user = await User.findByIdAndUpdate(req.user._id, 
+    {
+      $set:{
+        bio: bio
+      }
+    },
+    {
+      new: true,
+    }
+  )
+
+  if(!user){  
+    throw new ApiError(400, "Unable to update bio");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Bio updated Successfully"));
+})  
+
+
+const changePassword = asyncHandler( async (req,res)=>{
+
+  const {oldPassword, newPassword} = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if(!user){
+    throw new ApiError(404, "User not found");
+  }
+
+  const isMatch = await user.isPasswordCorrect(oldPassword);
+
+  if(!isMatch){
+    throw new ApiError(400, "Old password is incorrect");
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Password updated Successfully"));
+})
+
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Generate OTP
+  const otp = generateOtp(6);
+
+  // Save OTP and expiry (e.g., 10 minutes)
+  user.otp = otp;
+  user.otpExpiry = Date.now() + 10 * 60 * 1000;
+  await user.save();
+
+  // Send OTP via email
+  await sendOtpEmail(user.email, otp);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "OTP sent successfully"));
+});
+
+
+ const verifyOtp = asyncHandler(async (req, res) => {
+  const { otp } = req.body;
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Check if OTP exists and is valid
+  if (!user.otp || !user.otpExpiry || user.otpExpiry < Date.now()) {
+    throw new ApiError(400, "OTP expired or not set");
+  }
+
+  if (user.otp !== otp) {
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  // Clear OTP fields after successful verification
+  user.otp = undefined;
+  user.otpExpiry = undefined;
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "OTP verified successfully"));
+});
+
+
+const enterNewPassword = asyncHandler(async (req, res) => {
+  const { newPassword } = req.body;
+  const user = await User.findById(req.user._id);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password updated successfully"));
+
+  });
+
+
+
+  const deleteProfile = asyncHandler( async (req,res)=>{
+
+    const user = await User.findByIdAndDelete(req.user._id);
+
+  if(!user){
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Profile deleted successfully"));
+});
+
+
+
 export {
    registerUser,
    loginUser,
@@ -267,6 +470,16 @@ export {
    getAllUsers,
    getUserById,
     findUserByQuery,
+    changeBio,
+    changeContact,
+    changeEmail,
+    changeTitle,
+    changeFullname,
+    changePassword,
+    forgotPassword,
+    verifyOtp,
+    enterNewPassword,
+    deleteProfile
 
 
 }
