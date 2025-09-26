@@ -5,7 +5,7 @@ import { User } from "../models/user.models.js"
 import { options } from "../constants/constant.js";
 import validator from "validator";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
-import { generateOtp } from "../utils/OtpGenerator.js";
+
 
 const generateAccessRefreshToken = async (userId) => {
   try {
@@ -376,56 +376,7 @@ const changePassword = asyncHandler( async (req,res)=>{
 })
 
 
-const forgotPassword = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
 
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
-
-  // Generate OTP
-  const otp = generateOtp(6);
-
-  // Save OTP and expiry (e.g., 10 minutes)
-  user.otp = otp;
-  user.otpExpiry = Date.now() + 10 * 60 * 1000;
-  await user.save();
-
-  // Send OTP via email
-  await sendOtpEmail(user.email, otp);
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "OTP sent successfully"));
-});
-
-
- const verifyOtp = asyncHandler(async (req, res) => {
-  const { otp } = req.body;
-  const user = await User.findById(req.user._id);
-
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
-
-  // Check if OTP exists and is valid
-  if (!user.otp || !user.otpExpiry || user.otpExpiry < Date.now()) {
-    throw new ApiError(400, "OTP expired or not set");
-  }
-
-  if (user.otp !== otp) {
-    throw new ApiError(400, "Invalid OTP");
-  }
-
-  // Clear OTP fields after successful verification
-  user.otp = undefined;
-  user.otpExpiry = undefined;
-  await user.save();
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "OTP verified successfully"));
-});
 
 
 const enterNewPassword = asyncHandler(async (req, res) => {
@@ -473,11 +424,10 @@ export {
     changeBio,
     changeContact,
     changeEmail,
-    changeTitle,
+
     changeFullname,
     changePassword,
-    forgotPassword,
-    verifyOtp,
+    
     enterNewPassword,
     deleteProfile
 

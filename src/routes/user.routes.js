@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,forgotPassword,verifyOtp,enterNewPassword ,deleteProfile} from "../controllers/user.controller.js";
+import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,enterNewPassword ,deleteProfile, } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 const userRouter = Router()
@@ -19,8 +19,7 @@ userRouter.route("/getAll").get(getAllUsers);
 userRouter.route("/get/:id").get(getUserById);
 userRouter.route("/search/:query").get(findUserByQuery);
 
-userRouter.route("/forgot-password").post(verifyJWT, forgotPassword);
-userRouter.route("/verify-otp").post(verifyJWT, verifyOtp);
+
 userRouter.route("/enter-new-password").patch(verifyJWT, enterNewPassword);
 
 
