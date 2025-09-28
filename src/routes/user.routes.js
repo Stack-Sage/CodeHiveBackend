@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,enterNewPassword ,deleteProfile, } from "../controllers/user.controller.js";
+import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,enterNewPassword ,deleteProfile, changeAvatar, } from "../controllers/user.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 const userRouter = Router()
@@ -28,6 +28,8 @@ userRouter.route("/change-password").patch(verifyJWT, changePassword);
 userRouter.route("/change-contact").patch(verifyJWT, changeContact);
 userRouter.route("/change-email").patch(verifyJWT, changeEmail);
 userRouter.route("/change-bio").patch(verifyJWT, changeBio);
+userRouter.route("/change-avatar").patch(verifyJWT, upload.single("avatar"), changeAvatar);
+
 
 userRouter.route("/delete-profile").delete(verifyJWT, deleteProfile);
 

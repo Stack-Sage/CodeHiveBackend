@@ -276,6 +276,13 @@ const changeEmail  = asyncHandler( async (req,res)=>{
       new: true,
     }
   )
+   if(!user){  
+    throw new ApiError(400, "Unable to update email");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Email updated Successfully"));
 
 })
 
@@ -351,6 +358,35 @@ const changeBio = asyncHandler( async (req,res)=>{
 })  
 
 
+const changeAvatar = asyncHandler( async (req,res)=>{
+
+  const avatar = req.file?.path;
+  if (!avatar) {
+    throw new ApiError(400, "No avatar local image found");
+  }
+  const avatarImage = await uploadOnCloudinary(avatar);
+  if (!avatarImage) {
+    throw new ApiError(400, "Please Upload Image!");
+  }
+
+  const user = await User.findByIdAndUpdate(req.user._id, {
+    $set: {
+      avatar: avatarImage.url
+    }
+  }, {
+    new: true,
+  });
+
+
+  if(!user){  
+    throw new ApiError(400, "Unable to update avatar");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar updated Successfully"));
+})
+
 const changePassword = asyncHandler( async (req,res)=>{
 
   const {oldPassword, newPassword} = req.body;
@@ -424,7 +460,7 @@ export {
     changeBio,
     changeContact,
     changeEmail,
-
+    changeAvatar,
     changeFullname,
     changePassword,
     
