@@ -444,6 +444,8 @@ const enterNewPassword = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
+    .clearCookie("accessTokenStu", options)
+    .clearCookie("refreshTokenStu", options)
     .json(new ApiResponse(200, {}, "Profile deleted successfully"));
 });
 
