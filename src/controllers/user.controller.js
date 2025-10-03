@@ -2,7 +2,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js"
 import {ApiError} from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.models.js"
-import { options } from "../constants/constant.js";
+import { accessTokenOptions, options, refreshTokenOptions } from "../constants/constant.js";
 import validator from "validator";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 
@@ -127,8 +127,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, accessTokenOptions)
+    .cookie("refreshToken", refreshToken, refreshTokenOptions)
     .cookie("isLoggedIn",true,options)
     .json(
       new ApiResponse(
@@ -159,8 +159,8 @@ const logoutUser = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookie("accessToken", options)
-    .clearCookie("refreshToken", options)
+    .clearCookie("accessToken", accessTokenOptions)
+    .clearCookie("refreshToken", refreshTokenOptions)
     .json(new ApiResponse(200, "User Logged out Successfully"));
 });
 
@@ -194,8 +194,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     return res
       .status(200)
-      .cookie("accessToken", newAccessToken, options)
-      .cookie("refreshToken", newRefreshToken, options)
+      .cookie("accessToken", newAccessToken, accessTokenOptions)
+      .cookie("refreshToken", newRefreshToken, refreshTokenOptions)
       .json(
         new ApiResponse(
           200,
@@ -444,8 +444,8 @@ const enterNewPassword = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookie("accessTokenStu", options)
-    .clearCookie("refreshTokenStu", options)
+    .clearCookie("accessTokenStu", accessTokenOptions)
+    .clearCookie("refreshTokenStu", refreshTokenOptions)
     .json(new ApiResponse(200, {}, "Profile deleted successfully"));
 });
 

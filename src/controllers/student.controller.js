@@ -1,10 +1,11 @@
-import Student from "../models/student.model.js";
+
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/AsyncHandler.js";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 import validator from "validator";
-import { options } from "../constants/constant.js";
+import { accessTokenOptions, options, refreshTokenOptions } from "../constants/constant.js";
+import { Student } from "../models/student.model.js";
 
 
 const generateAccessRefreshToken = async (studentId) => {
@@ -26,10 +27,12 @@ const generateAccessRefreshToken = async (studentId) => {
 
 const registerStudent = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body;
+  console.log("req.body in registerStudent:", req.body);
 
-   if (!username || !email || !password) {
-      throw new ApiError(400, "All fields are required");
+   if([username, email,password].find((field) => !field || field.trim() === "")){
+      throw new ApiError(400,"All fields are required")
    }
+
    if (!validator.isEmail(email)) {
        throw new ApiError(400, "Invalid email format!");
      }
@@ -52,7 +55,7 @@ const registerStudent = asyncHandler(async (req, res) => {
   }
 
   const student = await Student.create({
-    username,
+    username: username?.trim(),
     email,
     password,
     avatar: avatarUrl,
@@ -68,6 +71,7 @@ const registerStudent = asyncHandler(async (req, res) => {
 });
 
 
+
 const loginStudent = asyncHandler(async (req, res) => {
    const { email, password } = req.body;
 
@@ -81,25 +85,25 @@ const loginStudent = asyncHandler(async (req, res) => {
        throw new ApiError(404, "Student not found");
    }
 
-   const isMatch = await student.comparePassword(password);
+   const isMatch = await student.isPasswordCorrect(password);
 
    if (!isMatch) {
        throw new ApiError(401, "Invalid password");
    }
 
     const { accessToken, refreshToken } = await generateAccessRefreshToken(
-       user._id
+       student._id
      );
-   
-     const loggedInUser = await User.findById(user._id).select(
+
+     const loggedInUser = await Student.findById(student._id).select(
        "-password -refreshToken "
      );
    
 
     return res
        .status(200)
-       .cookie("accessTokenStu", accessToken, options)
-       .cookie("refreshTokenStu", refreshToken, options)
+       .cookie("accessTokenStu", accessToken, accessTokenOptions)
+       .cookie("refreshTokenStu", refreshToken, refreshTokenOptions)
        .cookie("isStudentLoggedIn",true,options)
        .json(
          new ApiResponse(
@@ -109,15 +113,58 @@ const loginStudent = asyncHandler(async (req, res) => {
              accessToken,
              refreshToken,
            },
-           "User logged in Successfully"
+           "Student logged in Successfully"
          )
        );
 });
 
 
+const refreshAccessTokenStu = asyncHandler(async (req, res) => {
+  const incomingRefreshTokenStu =
+    req.cookies.refreshTokenStu || req.body.refreshTokenStu;
+
+  if (!incomingRefreshTokenStu) {
+    throw new ApiError(401, "Unautharized Request");
+  }
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshTokenStu,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    console.log(decodedToken);
+
+    const student = await Student.findById(decodedToken?._id);
+
+    if (!student) {
+      throw new ApiError(401, "Invalid Refresh Token");
+    }
+
+    if (incomingRefreshTokenStu !== student?.refreshToken) {
+      throw new ApiError(401, "Refresh Token is either Expired or used");
+    }
+
+    const { newAccessToken, newRefreshToken } =
+      await generateAccessRefreshToken(student._id);
+
+    return res
+      .status(200)
+      .cookie("accessTokenStu", newAccessToken, accessTokenOptions)
+      .cookie("refreshTokenStu", newRefreshToken, refreshTokenOptions)
+      .json(
+        new ApiResponse(
+          200,
+          { newAccessToken, newRefreshToken },
+          "Access Token Refreshed Successfully!"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh Token");
+  }
+});
 
 const logoutStudent = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user._id); 
+  const student = await Student.findById(req.student._id);  
   if (!student) {
     throw new ApiError(404, "Student not found");
   }
@@ -135,13 +182,13 @@ const logoutStudent = asyncHandler(async (req, res) => {
 
 
 const changeName = asyncHandler(async (req, res) => {
-  const { fullname } = req.body;
+  const { username } = req.body;
 
-  if (!fullname) throw new ApiError(400, "Name is required");
+  if (!username) throw new ApiError(400, "Name is required");
 
   const student = await Student.findByIdAndUpdate(
-    req.user._id,
-    { fullname },
+    req.student._id,
+    { username },
     { new: true }
   ).select("-password -refreshToken");
 
@@ -164,7 +211,7 @@ const changeEmail = asyncHandler(async (req, res) => {
   }
 
   const student = await Student.findByIdAndUpdate(
-    req.user._id,
+    req.student._id,
     { email },
     { new: true }
   ).select("-password -refreshToken");
@@ -182,7 +229,7 @@ const changePassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Both old and new passwords are required");
   }
 
-  const student = await Student.findById(req.user._id);
+  const student = await Student.findById(req.student._id);
   if (!student) throw new ApiError(404, "Student not found");
 
   const isMatch = await student.isPasswordCorrect(oldPassword);
@@ -202,7 +249,7 @@ const setNewPassword = asyncHandler(async (req, res) => {
 
   if (!newPassword) throw new ApiError(400, "New password is required");
 
-  const student = await Student.findById(req.user._id);
+  const student = await Student.findById(req.student._id);
   if (!student) throw new ApiError(404, "Student not found");
 
   student.password = newPassword;
@@ -222,7 +269,7 @@ const changeAvatar = asyncHandler(async (req, res) => {
   if (!avatar) throw new ApiError(500, "Failed to upload avatar");
 
   const student = await Student.findByIdAndUpdate(
-    req.user._id,
+    req.student._id,
     { avatar: avatar.url },
     { new: true }
   ).select("-password -refreshToken");
@@ -234,7 +281,7 @@ const changeAvatar = asyncHandler(async (req, res) => {
 
 
 const deleteProfile = asyncHandler(async (req, res) => {
-  const student = await Student.findById(req.user._id);
+  const student = await Student.findById(req.student._id);
   if (!student) throw new ApiError(404, "Student not found");
 
   await student.deleteOne(); 
@@ -252,7 +299,7 @@ const getStudentByUsername = asyncHandler(async (req, res) => {
   const { username } = req.params;
 
   if (!username) {
-    throw new ApiError(400, "Username is required");
+    throw new ApiError(400, "username is required");
   }
 
   const student = await Student.findOne({ username }).select("-password -refreshToken");
@@ -267,6 +314,6 @@ const getStudentByUsername = asyncHandler(async (req, res) => {
 });
 
 
-export { registerStudent, loginStudent, logoutStudent, changeName, changeEmail, changePassword,deleteProfile, setNewPassword, changeAvatar, getStudentByUsername };
+export { registerStudent, loginStudent, logoutStudent, changeName, changeEmail, changePassword,deleteProfile, setNewPassword, changeAvatar, getStudentByUsername, refreshAccessTokenStu };
 
 

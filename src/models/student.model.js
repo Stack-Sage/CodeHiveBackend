@@ -25,7 +25,6 @@ const studentSchema = new Schema({
    }
 },{timestamps:true});
 
-const Student = model("Student", studentSchema);
 
 studentSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
@@ -66,8 +65,6 @@ studentSchema.methods.generateRefreshToken = function(){
 }
 
 
-export default Student;
-
-
+export const Student = model("Student", studentSchema);
 
 
