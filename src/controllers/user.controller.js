@@ -2,87 +2,97 @@ import { asyncHandler } from "../utils/AsyncHandler.js"
 import {ApiError} from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.models.js"
-import { accessTokenOptions, options, refreshTokenOptions } from "../constants/constant.js";
+import { accessTokenOptions, options } from "../constants/constant.js"; // removed refreshTokenOptions
 import validator from "validator";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
 
 
-const generateAccessRefreshToken = async (userId) => {
-  try {
-    const user = await User.findById(userId);
-    const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
-
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false });
-
-    return { accessToken, refreshToken };
-  } catch (error) {
-    throw new ApiError(500, "Tokens can't be generated!");
-  }
+const generateAccessTokenOnly = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) throw new ApiError(404, "User not found");
+  const accessToken = user.generateAccessToken();
+  return { accessToken };
 };
 
 
-const registerUser = asyncHandler( async(req, res)=>{
-   console.log(req.body)  
+const registerUser = asyncHandler(async (req, res) => {
+  const {
+    fullname,
+    password,
+    email,
+    dob,
+    country,
+    bio,
+    price,
+    skills,
+    roles 
+  } = req.body;
 
-
-  const {fullname,password, email,contact,bio, price } = req.body;
-  if ([fullname,bio,password,contact, email, password].some((field) => {
-      return field?.trim() === "";
-    })
-  ) {
-    throw new ApiError(400, "All Fields are Required");
+  if (!roles || !Array.isArray(roles) || !roles.length) {
+    throw new ApiError(400, "Role is required");
   }
+
+  if ([fullname, password, email].some((field) => field?.trim?.() === "")) {
+    throw new ApiError(400, "Fullname, email, and password are required");
+  }
+
+  console.log(fullname, email, roles)
 
   if (!validator.isEmail(email)) {
     throw new ApiError(400, "Invalid email format!");
   }
 
+  if (roles.includes("educator")) {
+    if (!bio || !skills || !price) {
+      throw new ApiError(400, "Bio, skills, and price are required for educators");
+    }
+  }
+
+  // Check for existing user
   const existedUser = await User.findOne({
-    $or: [{ email }, { contact }],
+    email
   });
 
   if (existedUser) {
-    if (existedUser.email === email) {
-      throw new ApiError(409, "Email Already Exists !");
-    }
-    if (existedUser.contact === contact) {
-      throw new ApiError(409, "Phone Number already exists !");
-    }
+    throw new ApiError(409, "Email Already Exists!");
   }
 
-  const avatarLocalPath = req.file?.path;
 
-  if (!avatarLocalPath) {
-    throw new ApiError(400, "No avatar local image found");
-  }
+  const avatarLocalPath = req.file?.[0]?.path;
+
+  console.log(avatarLocalPath)
+
+  // if (!avatarLocalPath) {
+  //   throw new ApiError(400, "No avatar local image found");
+  // }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
+  // if (!avatar) {
+  //   throw new ApiError(400, "Please Upload Image!");
+  // }
 
-  if (!avatar) {
-    throw new ApiError(400, "Please Upload Image!");
+  // Parse skills if string
+  let skillsArr = skills;
+  if (typeof skills === "string") {
+    skillsArr = skills.split(",").map(s => s.trim()).filter(Boolean);
   }
 
   const user = await User.create({
+    roles,
     fullname,
-    avatar: avatar.url,
-    contact,
     email,
     password,
+    dob,
+    country,
     bio,
     price,
+    skills: skillsArr,
+    avatar: avatar?.url || "",
   });
-  
-  const createdUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
-  
+
+  const createdUser = await User.findById(user._id).select("-password");
   if (!createdUser) {
-    throw new ApiError(
-      500,
-      "User Wasn't Registered "
-    );
+    throw new ApiError(500, "User Wasn't Registered");
   }
 
   return res
@@ -93,20 +103,21 @@ const registerUser = asyncHandler( async(req, res)=>{
 
 
 const loginUser = asyncHandler(async (req, res) => {
-  
-  
-  const { contact, email, password } = req.body;
+  const { email, password, role } = req.body;
+  console.log(email, password, role)
 
-  if (!(contact || email)) {
-    throw new ApiError(400, "All Fields are Required! ");
+  if (!email || !password) {
+    throw new ApiError(400, "Email and password are required!");
   }
 
+  // Find user by email and role
   const user = await User.findOne({
-    $or: [{ contact }, { email }],
+    email: email.trim().toLowerCase(),
+    roles: role ? [role] : undefined
   });
 
   if (!user) {
-    throw new ApiError(404, "User does not exist");
+    throw new ApiError(404, "User does not exist! ");
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
@@ -115,28 +126,19 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Password is Incorrect!");
   }
 
-  const { accessToken, refreshToken } = await generateAccessRefreshToken(
-    user._id
-  );
-
-  const loggedInUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
-
-  
+  const { accessToken } = await generateAccessTokenOnly(user._id);
+  const loggedInUser = await User.findById(user._id).select("-password");
 
   return res
     .status(200)
     .cookie("accessToken", accessToken, accessTokenOptions)
-    .cookie("refreshToken", refreshToken, refreshTokenOptions)
-    .cookie("isLoggedIn",true,options)
+    .cookie("isLoggedIn", true, options)
     .json(
       new ApiResponse(
         200,
         {
           user: loggedInUser,
           accessToken,
-          refreshToken,
         },
         "User logged in Successfully"
       )
@@ -144,74 +146,16 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(
-    req.user._id,
-    {
-      $unset: {
-        refreshToken: 1,
-      },
-    },
-    {
-      new: true,
-    }
-  );
-
-
   return res
     .status(200)
     .clearCookie("accessToken", accessTokenOptions)
-    .clearCookie("refreshToken", refreshTokenOptions)
+    .clearCookie("isLoggedIn", options)
     .json(new ApiResponse(200, "User Logged out Successfully"));
 });
 
-const refreshAccessToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken =
-    req.cookies.refreshToken || req.body.refreshToken;
-
-  if (!incomingRefreshToken) {
-    throw new ApiError(401, "Unautharized Request");
-  }
-  try {
-    const decodedToken = jwt.verify(
-      incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
-    );
-
-    console.log(decodedToken);
-
-    const user = await User.findById(decodedToken?._id);
-
-    if (!user) {
-      throw new ApiError(401, "Invalid Refresh Token");
-    }
-
-    if (incomingRefreshToken !== user?.refreshToken) {
-      throw new ApiError(401, "Refresh Token is either Expired or used");
-    }
-
-    const { newAccessToken, newRefreshToken } =
-      await generateAccessRefreshToken(user._id);
-
-    return res
-      .status(200)
-      .cookie("accessToken", newAccessToken, accessTokenOptions)
-      .cookie("refreshToken", newRefreshToken, refreshTokenOptions)
-      .json(
-        new ApiResponse(
-          200,
-          { newAccessToken, newRefreshToken },
-          "Access Token Refreshed Successfully!"
-        )
-      );
-  } catch (error) {
-    throw new ApiError(401, error?.message || "Invalid refresh Token");
-  }
-});
-
-
 const getAllUsers = asyncHandler(async (req, res) => {
 
-  const users = await User.find().select("-password -refreshToken").sort({createdAt:-1});
+  const users = await User.find().select("-password").sort({createdAt:-1}); // removed -refreshToken
   if (!users) {
     throw new ApiError(404, "No users found");
   }
@@ -225,7 +169,7 @@ const getUserById = asyncHandler(async (req, res) => {
 
   const userId = req.params.id;
 
-  const user = await User.findById(userId).select("-password -refreshToken");
+  const user = await User.findById(userId).select("-password"); // removed -refreshToken
 
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -250,10 +194,11 @@ const findUserByQuery = asyncHandler(async (req, res) => {
       { fullname: rx },
       { email: rx },
       { bio: rx },
-
+      { skills: rx },
+      { country: rx },
     ],
   })
-    .select("-password -refreshToken")
+    .select("-password") 
     .sort({ createdAt: -1 });
 
   return res.status(200).json(new ApiResponse(200, users, "Users fetched Successfully"));
@@ -264,102 +209,82 @@ const findUserByQuery = asyncHandler(async (req, res) => {
 
 
 const changeEmail  = asyncHandler( async (req,res)=>{
+  const { email } = req.body;
+  if (!validator.isEmail(email)) {
+    throw new ApiError(400, "Invalid email format!");
+  }
 
-  const {email} = req.body;
-  const user = await User.findByIdAndUpdate(req.user._id, 
-    {
-      $set:{
-        email:email 
-      }
-    },
-    {
-      new: true,
-    }
-  )
-   if(!user){  
+  const exists = await User.findOne({ email, _id: { $ne: req.user._id } });
+  if (exists) {
+    throw new ApiError(409, "Email already in use");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id, 
+    { $set: { email } },
+    { new: true }
+  ).select("-password");
+
+  if(!user){  
     throw new ApiError(400, "Unable to update email");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Email updated Successfully"));
-
+  return res.status(200).json(new ApiResponse(200, user, "Email updated Successfully"));
 })
 
 
 const changeContact  = asyncHandler( async (req,res)=>{
+  const { contact } = req.body;
 
-  const {contact} = req.body;
-  const user = await User.findByIdAndUpdate(req.user._id, 
-    {
-      $set:{  
-        contact: contact
-      }
-    },
-    {
-      new: true,
-    }
-  )
+  const exists = await User.findOne({ contact, _id: { $ne: req.user._id } });
+  if (exists) {
+    throw new ApiError(409, "Phone Number already exists");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id, 
+    { $set: { contact } },
+    { new: true }
+  ).select("-password");
 
   if(!user){  
     throw new ApiError(400, "Unable to update contact");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Contact updated Successfully"));
-})
-
+  return res.status(200).json(new ApiResponse(200, user, "Contact updated Successfully"));
+});
 
 const changeFullname = asyncHandler( async (req,res)=>{
-
-  const {fullname} = req.body;
-  const user = await User.findByIdAndUpdate(req.user._id, 
-    {
-      $set:{
-        fullname: fullname
-      }
-    },
-    {
-      new: true,
-    }
-  )
+  const { fullname } = req.body;
+  const user = await User.findByIdAndUpdate(
+    req.user._id, 
+    { $set: { fullname } },
+    { new: true }
+  ).select("-password");
 
   if(!user){  
     throw new ApiError(400, "Unable to update fullname");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Fullname updated Successfully"));
-})
+  return res.status(200).json(new ApiResponse(200, user, "Fullname updated Successfully"));
+});
 
 const changeBio = asyncHandler( async (req,res)=>{
-
-  const {bio} = req.body;
-  const user = await User.findByIdAndUpdate(req.user._id, 
-    {
-      $set:{
-        bio: bio
-      }
-    },
-    {
-      new: true,
-    }
-  )
+  const { bio } = req.body;
+  const user = await User.findByIdAndUpdate(
+    req.user._id, 
+    { $set: { bio } },
+    { new: true }
+  ).select("-password");
 
   if(!user){  
     throw new ApiError(400, "Unable to update bio");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Bio updated Successfully"));
-})  
-
+  return res.status(200).json(new ApiResponse(200, user, "Bio updated Successfully"));
+});
 
 const changeAvatar = asyncHandler( async (req,res)=>{
-
   const avatar = req.file?.path;
   if (!avatar) {
     throw new ApiError(400, "No avatar local image found");
@@ -369,28 +294,21 @@ const changeAvatar = asyncHandler( async (req,res)=>{
     throw new ApiError(400, "Please Upload Image!");
   }
 
-  const user = await User.findByIdAndUpdate(req.user._id, {
-    $set: {
-      avatar: avatarImage.url
-    }
-  }, {
-    new: true,
-  });
-
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { $set: { avatar: avatarImage.url } },
+    { new: true }
+  ).select("-password");
 
   if(!user){  
     throw new ApiError(400, "Unable to update avatar");
   }
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Avatar updated Successfully"));
-})
+  return res.status(200).json(new ApiResponse(200, user, "Avatar updated Successfully"));
+});
 
 const changePassword = asyncHandler( async (req,res)=>{
-
-  const {oldPassword, newPassword} = req.body;
-
+  const { oldPassword, newPassword } = req.body;
   const user = await User.findById(req.user._id);
 
   if(!user){
@@ -398,7 +316,6 @@ const changePassword = asyncHandler( async (req,res)=>{
   }
 
   const isMatch = await user.isPasswordCorrect(oldPassword);
-
   if(!isMatch){
     throw new ApiError(400, "Old password is incorrect");
   }
@@ -406,9 +323,7 @@ const changePassword = asyncHandler( async (req,res)=>{
   user.password = newPassword;
   await user.save();
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "Password updated Successfully"));
+  return res.status(200).json(new ApiResponse(200, {}, "Password updated Successfully"));
 })
 
 
@@ -435,7 +350,6 @@ const enterNewPassword = asyncHandler(async (req, res) => {
 
 
   const deleteProfile = asyncHandler( async (req,res)=>{
-
     const user = await User.findByIdAndDelete(req.user._id);
 
   if(!user){
@@ -444,8 +358,8 @@ const enterNewPassword = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .clearCookie("accessTokenStu", accessTokenOptions)
-    .clearCookie("refreshTokenStu", refreshTokenOptions)
+    .clearCookie("accessToken", accessTokenOptions)
+    .clearCookie("isLoggedIn", options)
     .json(new ApiResponse(200, {}, "Profile deleted successfully"));
 });
 
@@ -455,19 +369,15 @@ export {
    registerUser,
    loginUser,
    logoutUser,
-   refreshAccessToken,
    getAllUsers,
    getUserById,
-    findUserByQuery,
-    changeBio,
-    changeContact,
-    changeEmail,
-    changeAvatar,
-    changeFullname,
-    changePassword,
-    
-    enterNewPassword,
-    deleteProfile
-
-
+   findUserByQuery,
+   changeBio,
+   changeContact,
+   changeEmail,
+   changeAvatar,
+   changeFullname,
+   changePassword,
+   enterNewPassword,
+   deleteProfile
 }

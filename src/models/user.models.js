@@ -3,47 +3,63 @@ import jwt from "jsonwebtoken";
 import bcrypt from 'bcrypt'
 
 const userSchema = new Schema({
+  roles: {
+    type: [String],
+    enum: ["student", "educator"],
+    default: ["student"],
+    index: true,
+  },
+  fullname: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    index: true,
+  },
+  password: {
+    type: String,
+    required: true,
 
-   fullname:{
-      type:String,
-      required:true,
-   },
-   email:{
-      type:String,
-      required:true,
-      unique:true,
-   },
-   password:{
-      type:String,
-      required:true,
-
-   },
-   contact:{
-      type:Number,
-      required:true,
-      unique:true,
-   },
-   avatar:{
-      type:String,
-      required:true,
-   },
-   bio:{
-      type:String,
-      required:true,
-   }
-   ,
-    price:{
-      type:String,
-      required:true,
-   },
-   refreshToken:{
-      type:String,
-      default:""
-   }
-
-},
-{
-  timestamps :true,
+  },
+  avatar: {
+    type: String, 
+  },
+  country:{
+    type: String,
+  },
+  skills:{
+    type: [String],
+    required: function () {
+      return Array.isArray(this.roles) && this.roles.includes("educator");
+    }
+  },
+  bio: {
+    type: String,
+    required: function () {
+      return Array.isArray(this.roles) && this.roles.includes("educator");
+    }
+  },
+  price: {
+    type: Number,
+    min: 0,
+    required: function () {
+      return Array.isArray(this.roles) && this.roles.includes("educator");
+    }, 
+  },
+ 
+  dob:{
+    type: Date,
+  },
+ 
+}, {
+  timestamps: true,
+  
 })
 
 
@@ -64,24 +80,22 @@ userSchema.methods.generateAccessToken = function(){
   return jwt.sign(
     {
       _id: this._id,
-      email:this.email,
-      username:this.username,
+      email: this.email,
+      roles: this.roles,
+      fullname: this.fullname,
     },
     process.env.ACCESS_TOKEN_SECRET,
     {
-      expiresIn:process.env.ACCESS_TOKEN_EXPIRY
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY
     }
   )
 }
+
 userSchema.methods.generateRefreshToken = function(){
-    return jwt.sign(
-    {
-      _id: this._id,
-    },
+  return jwt.sign(
+    { _id: this._id },
     process.env.REFRESH_TOKEN_SECRET,
-    {
-      expiresIn:process.env.REFRESH_TOKEN_EXPIRY
-    }
+    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY }
   )
 }
 

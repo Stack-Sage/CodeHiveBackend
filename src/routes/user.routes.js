@@ -1,12 +1,14 @@
 import { Router } from "express";
-import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,enterNewPassword ,deleteProfile, changeAvatar, refreshAccessToken } from "../controllers/user.controller.js";
-import { upload } from "../middlewares/multer.middleware.js";
+import { registerUser,loginUser,logoutUser, getAllUsers, getUserById, findUserByQuery, changeBio,changeContact,changeEmail,changeFullname,changePassword,enterNewPassword ,deleteProfile, changeAvatar } from "../controllers/user.controller.js";
+
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { upload } from "../middlewares/multer.middleware.js";
 const userRouter = Router()
 
 
+
 userRouter.route("/register").post(
-  upload.single("avatar"),
+  upload.single({ name: "avatar" ,maxCount: 1 }),
   registerUser
 );
 
@@ -22,8 +24,6 @@ userRouter.route("/search/:query").get(findUserByQuery);
 
 
 userRouter.route("/enter-new-password").patch(verifyJWT, enterNewPassword);
-
-userRouter.route("/refresh-access-token").get(refreshAccessToken);
 userRouter.route("/change-fullname").patch(verifyJWT, changeFullname);
 userRouter.route("/change-password").patch(verifyJWT, changePassword);
 userRouter.route("/change-contact").patch(verifyJWT, changeContact);

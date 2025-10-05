@@ -10,18 +10,21 @@ import {
   searchMessages,
   getUnreadCountForThread,
   getChatHistory,
+  uploadMessageFile, // <-- add this to your controller
 } from "../controllers/message.controller.js";
+import { upload } from "../middlewares/multer.middleware.js"; // use shared multer middleware
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const messageRouter = Router();
 
+messageRouter.use(verifyJWT);
 // Create a message
 messageRouter.post("/", sendMessage);
 
-// Fetch a thread between two users (agnostic of roles)
 messageRouter.get("/thread/:userA/:userB", getThreadMessages);
 
 // Conversations list for a user (role-aware)
-messageRouter.get("/conversations/:userId/:role", getConversations);
+messageRouter.get("/conversations/:userId", getConversations);
 
 // Mark a specific message as read
 messageRouter.patch("/:messageId/read", markMessageAsRead);
@@ -42,8 +45,9 @@ messageRouter.get("/search", searchMessages);
 messageRouter.get("/unread/:me/:peer", getUnreadCountForThread);
 
 // Chat history (paged)
-messageRouter.get("/history/:studentId/:teacherId/:page", getChatHistory);
+messageRouter.get("/history/:userA/:userB/:page", getChatHistory);
 
+// Message file upload route using shared multer middleware and controller
+messageRouter.post("/upload", upload.single("file"), uploadMessageFile);
 
-export { messageRouter  };
-
+export { messageRouter };
