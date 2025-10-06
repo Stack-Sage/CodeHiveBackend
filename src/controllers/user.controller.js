@@ -97,27 +97,33 @@ const registerUser = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(200, createdUser, "User Registered Successfully!"));
+    .json(new ApiResponse(200, createdUser, `A New User as  ${createdUser.roles[0]} Registered Successfully! \n Please Login to continue.`));
 
 })
 
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password, role } = req.body;
+
   console.log(email, password, role)
 
   if (!email || !password) {
     throw new ApiError(400, "Email and password are required!");
   }
 
-  // Find user by email and role
+  // Find user by email
   const user = await User.findOne({
-    email: email.trim().toLowerCase(),
-    roles: role ? [role] : undefined
+    email: email.trim().toLowerCase()
+
   });
 
   if (!user) {
-    throw new ApiError(404, "User does not exist! ");
+    throw new ApiError(404, "User does not exist! \n Please register first!");
+  }
+
+  // If role is provided, check if user has that role
+  if (role && !user.roles.includes(role)) {
+    throw new ApiError(400, `User exists but not as ${role}.\n Please use correct role or contact support.`);
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
@@ -140,7 +146,7 @@ const loginUser = asyncHandler(async (req, res) => {
           user: loggedInUser,
           accessToken,
         },
-        "User logged in Successfully"
+        `Welcome ${loggedInUser.fullname} \n You are logged In Successfully in ${user.roles.join(", ")} Profile `
       )
     );
 });
