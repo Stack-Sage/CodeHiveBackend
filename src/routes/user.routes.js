@@ -8,7 +8,7 @@ const userRouter = Router()
 
 
 userRouter.route("/register").post(
-  upload.single({ name: "avatar" ,maxCount: 1 }),
+  upload.single("avatar"),
   registerUser
 );
 

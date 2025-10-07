@@ -45,7 +45,7 @@ messageRouter.get("/search", searchMessages);
 messageRouter.get("/unread/:me/:peer", getUnreadCountForThread);
 
 // Chat history (paged)
-messageRouter.get("/history/:userA/:userB/:page", getChatHistory);
+messageRouter.get("/history/:userA/:userB", getChatHistory);
 
 // Message file upload route using shared multer middleware and controller
 messageRouter.post("/upload", upload.single("file"), uploadMessageFile);

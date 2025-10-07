@@ -52,7 +52,7 @@ const userSchema = new Schema({
       return Array.isArray(this.roles) && this.roles.includes("educator");
     }, 
   },
- 
+
   dob:{
     type: Date,
   },

@@ -16,7 +16,8 @@ const MessageSchema = new Schema(
       default: "",
     },
 
-    // Status
+    
+    
     read: { type: Boolean, default: false },
   },
   { timestamps: true }

@@ -58,18 +58,18 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
 
-  const avatarLocalPath = req.file?.[0]?.path;
+  const avatarLocalPath = req?.file?.path;
 
   console.log(avatarLocalPath)
 
-  // if (!avatarLocalPath) {
-  //   throw new ApiError(400, "No avatar local image found");
-  // }
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "No avatar local image found");
+  }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  // if (!avatar) {
-  //   throw new ApiError(400, "Please Upload Image!");
-  // }
+  if (!avatar) {
+    throw new ApiError(400, "Please Upload Image!");
+  }
 
   // Parse skills if string
   let skillsArr = skills;

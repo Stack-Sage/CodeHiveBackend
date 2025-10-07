@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 import { v2 as cloudinary } from "cloudinary";
+import fs from "fs";
 
 // Helpers
 const toObjectId = (id) => {
@@ -70,29 +71,21 @@ export const sendMessage = asyncHandler(async (req, res) => {
  */
 export const getThreadMessages = asyncHandler(async (req, res) => {
   const { userA, userB } = req.params;
-  const page = Math.max(parseInt(req.query.page || "1", 10), 1);
   const limit = Math.min(Math.max(parseInt(req.query.limit || "50", 10), 1), 200);
-  const before = req.query.before ? new Date(req.query.before) : null;
 
   if (!userA || !userB) throw new ApiError(400, "Thread requires userA and userB");
 
   const q = threadQuery(userA, userB);
-  const findQuery = before ? { $and: [q, { createdAt: { $lt: before } }] } : q;
 
-  let query = Message.find(findQuery)
-    .sort({ createdAt: 1 })
+  // Always fetch the latest N messages, sorted by createdAt descending
+  const messages = await Message.find(q)
+    .sort({ createdAt: -1 }) // latest first
+    .limit(limit)
     .populate("fromUser toUser", "fullname username email avatar")
     .lean();
 
-  if (before) {
-    query = query.limit(limit);
-  } else {
-    query = query.skip((page - 1) * limit).limit(limit);
-  }
-
-  const messages = await query;
-
-  return res.status(200).json(new ApiResponse(200, messages, "Thread fetched"));
+  // Reverse for chronological display
+  return res.status(200).json(new ApiResponse(200, messages.reverse(), "Thread fetched"));
 });
 
 /**
@@ -106,6 +99,7 @@ export const getConversations = asyncHandler(async (req, res) => {
   const uid = toObjectId(userId);
   if (!uid) throw new ApiError(400, "Invalid userId");
 
+  // Aggregation pipeline to get all unique partners (sent or received messages)
   const pipeline = [
     { $match: { $or: [{ fromUser: uid }, { toUser: uid }] } },
     { $sort: { createdAt: -1 } },
@@ -230,15 +224,16 @@ export const deleteMessage = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
   if (!messageId) throw new ApiError(400, "messageId required");
 
-  const currentUserId =
-    req.user?._id?.toString?.() || req.body.userId || null;
+  // Always use string for currentUserId
+  const currentUserId = String(req.user?._id || req.body.userId || "");
 
   const msg = await Message.findById(messageId);
   if (!msg) throw new ApiError(404, "Message not found");
 
+  // Check ownership
   if (
     currentUserId &&
-    msg.fromUser?.toString?.() !== currentUserId
+    String(msg.fromUser) !== currentUserId
   ) {
     throw new ApiError(403, "You can delete only your own messages");
   }
@@ -275,32 +270,45 @@ export const getUnreadCountForThread = asyncHandler(async (req, res) => {
 });
 
 export const getChatHistory = asyncHandler(async (req, res) => {
-  const { userA, userB, page } = req.params;
-  const pageNum = Math.max(parseInt(page || "1", 10), 1);
-  const limit = 20;
+  const { userA, userB } = req.params;
+  
 
   const messages = await Message.find(threadQuery(userA, userB))
     .populate("fromUser toUser", "fullname username email avatar")
     .sort({ createdAt: 1 })
-    .skip((pageNum - 1) * limit)
-    .limit(limit);
+    .lean();
 
   return res.status(200).json(new ApiResponse(200, messages, "Chat history fetched successfully"));
 });
 
 export const uploadMessageFile = asyncHandler(async (req, res, next) => {
-  if (!req.file) {
+  if (!req.file || !req.file.path) {
     return res.status(400).json({ success: false, message: 'file is required' });
   }
   const ALLOWED_MIME = new Set([
     "image/jpeg", "image/png", "image/gif", "image/webp",
-    "application/pdf", "text/plain"
+    "application/pdf", "text/plain",
+    "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ]);
   if (!ALLOWED_MIME.has(req.file.mimetype)) {
+    fs.unlinkSync(req.file.path); // cleanup
     return res.status(415).json({ success: false, message: 'unsupported media type' });
   }
-  const b64 = Buffer.from(req.file.buffer).toString('base64');
-  const dataUri = `data:${req.file.mimetype};base64,${b64}`;
-  const result = await cloudinary.uploader.upload(dataUri, { resource_type: "auto" });
-  return res.json({ success: true, secure_url: result.secure_url });
+
+  let uploadResult;
+  if (req.file.mimetype.startsWith("image/")) {
+    // For images, use base64
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const b64 = fileBuffer.toString('base64');
+    const dataUri = `data:${req.file.mimetype};base64,${b64}`;
+    uploadResult = await cloudinary.uploader.upload(dataUri, { resource_type: "image" });
+  } else {
+    // For non-images (PDF, DOC, etc), upload file path directly as raw
+    uploadResult = await cloudinary.uploader.upload(req.file.path, { resource_type: "raw" });
+  }
+  fs.unlinkSync(req.file.path); // cleanup
+
+  console.log("Cloudinary upload result:", uploadResult);
+
+  return res.json({ success: true, secure_url: uploadResult.secure_url, result: uploadResult });
 });
