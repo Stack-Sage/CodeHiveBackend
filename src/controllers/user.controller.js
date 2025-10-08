@@ -14,6 +14,10 @@ const generateAccessTokenOnly = async (userId) => {
   return { accessToken };
 };
 
+const everythingOkay = asyncHandler(async (req, res) => {
+  return res.status(200).json(new ApiResponse(200, {}, "Everything is okay!"));
+});
+
 
 const registerUser = asyncHandler(async (req, res) => {
   const {
@@ -372,6 +376,7 @@ const enterNewPassword = asyncHandler(async (req, res) => {
 
 
 export {
+    everythingOkay,
    registerUser,
    loginUser,
    logoutUser,
