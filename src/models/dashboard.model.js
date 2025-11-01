@@ -4,8 +4,7 @@ const { Schema } = mongoose;
 const DashboardSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
   profileClicks: { type: Number, default: 0 },
-  profileVisitors: [{ type: Schema.Types.ObjectId, ref: "User" }],
-  followers: { type: Number, default: 0 },
+  profileClicksHistory: [{ type: Number }], // for analytics/charts
   rating: { type: Number, default: 0 },
   reviews: [
     {
@@ -29,7 +28,6 @@ const DashboardSchema = new Schema({
       level: { type: Number, default: 1 }
     }
   ],
-  profileClicksHistory: [{ type: Number }], // e.g. clicks per day/week
   feedbackSummary: {
     excellentPercent: { type: Number, default: 0 },
     recommendPercent: { type: Number, default: 0 }

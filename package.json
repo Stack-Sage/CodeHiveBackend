@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
+    "nodemailer": "^7.0.10",
     "prettier": "^3.6.2",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.1",
