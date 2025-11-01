@@ -173,7 +173,7 @@ export const payForSession = asyncHandler(async (req, res) => {
   if (String(session.student) !== String(studentId)) throw new ApiError(403, "Not authorized");
   if (session.status !== "accepted") throw new ApiError(400, "Session not accepted yet");
 
-  const payment = await Payment.findById(paymentId);
+  const payment = await Payment.findById(paymentId) || await Payment.findOne({ orderId: paymentId });
   if (!payment || payment.status !== "success") throw new ApiError(400, "Payment not successful");
 
   const platformFee = Math.round(payment.amount * 0.05);
