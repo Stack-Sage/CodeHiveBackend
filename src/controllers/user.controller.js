@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/AsyncHandler.js"
 import {ApiError} from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.models.js"
+import { Dashboard } from "../models/dashboard.model.js";
 import { accessTokenOptions, options } from "../constants/constant.js"; // removed refreshTokenOptions
 import validator from "validator";
 import { uploadOnCloudinary } from "../utils/Cloudinary.js";
@@ -156,11 +157,12 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
-  return res
-    .status(200)
+  // Always clear cookies and return success, regardless of auth state
+  res
     .clearCookie("accessToken", accessTokenOptions)
     .clearCookie("isLoggedIn", options)
-    .json(new ApiResponse(200, "User Logged out Successfully"));
+    .status(200)
+    .json(new ApiResponse(200, {}, "User Logged out Successfully"));
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {
@@ -176,18 +178,21 @@ const getAllUsers = asyncHandler(async (req, res) => {
 });
 
 const getUserById = asyncHandler(async (req, res) => {
-
   const userId = req.params.id;
-
-  const user = await User.findById(userId).select("-password"); // removed -refreshToken
-
+  const user = await User.findById(userId).select("-password");
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  // Get visitorId from authenticated user (if available)
+  const visitorId = req.user?._id?.toString();
+  await incrementProfileClicks(userId, visitorId);
+
+  // Calculate profile completion
+  const profileCompletion = calculateProfileCompletion(user);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "User fetched Successfully"));
+    .json(new ApiResponse(200, { ...user.toObject(), profileCompletion }, "User fetched Successfully"));
 });
 
 
@@ -211,7 +216,18 @@ const findUserByQuery = asyncHandler(async (req, res) => {
     .select("-password") 
     .sort({ createdAt: -1 });
 
-  return res.status(200).json(new ApiResponse(200, users, "Users fetched Successfully"));
+  // Update search appearances for each matched user
+  for (const user of users) {
+    await incrementSearchAppearances(user._id);
+  }
+
+  // Calculate profile completion for each user
+  const usersWithCompletion = users.map(u => ({
+    ...u.toObject(),
+    profileCompletion: calculateProfileCompletion(u)
+  }));
+
+  return res.status(200).json(new ApiResponse(200, usersWithCompletion, "Users fetched Successfully"));
 });
 
 
@@ -374,6 +390,50 @@ const enterNewPassword = asyncHandler(async (req, res) => {
 });
 
 
+
+// Helper to update profile clicks in dashboard (unique per visitor)
+async function incrementProfileClicks(userId, visitorId) {
+  if (!visitorId || userId === visitorId) return; // Don't count self-views
+  const dashboard = await Dashboard.findOne({ user: userId });
+  if (!dashboard) {
+    await Dashboard.create({ user: userId, profileVisitors: [visitorId], profileClicks: 1 });
+    return;
+  }
+  dashboard.profileVisitors = dashboard.profileVisitors || [];
+  if (!dashboard.profileVisitors.includes(visitorId)) {
+    dashboard.profileVisitors.push(visitorId);
+    dashboard.profileClicks = (dashboard.profileClicks || 0) + 1;
+    await dashboard.save();
+  }
+}
+
+// Helper to update search appearances in dashboard
+async function incrementSearchAppearances(userId) {
+  await Dashboard.findOneAndUpdate(
+    { user: userId },
+    { $inc: { searchAppearances: 1 } },
+    { upsert: true }
+  );
+}
+
+// Helper to calculate profile completion percentage
+function calculateProfileCompletion(user) {
+  let totalFields = 7; // fullname, email, avatar, country, dob, bio, skills
+  let filled = 0;
+  if (user.fullname) filled++;
+  if (user.email) filled++;
+  if (user.avatar) filled++;
+  if (user.country) filled++;
+  if (user.dob) filled++;
+  if (user.bio) filled++;
+  if (Array.isArray(user.skills) && user.skills.length > 0) filled++;
+  // For educators, also check price
+  if (user.roles?.includes("educator")) {
+    totalFields++;
+    if (user.price) filled++;
+  }
+  return Math.round((filled / totalFields) * 100);
+}
 
 export {
     everythingOkay,

@@ -56,7 +56,38 @@ const userSchema = new Schema({
   dob:{
     type: Date,
   },
- 
+
+  views:[
+    { type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User' }
+  ]
+  ,
+  profileClicks:[
+    { type: mongoose.Schema.Types.ObjectId, 
+      ref: 'User' }
+  ],
+  studentCount:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:'User'
+  },
+  sessionGiven:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:'Session'
+  },
+  studentFeedbacks:[
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Feedback'
+    }
+  ],
+  feedbackMessage:[
+    {
+      type: String,
+      trim: true,
+    }
+  ],
+
+  
 }, {
   timestamps: true,
   

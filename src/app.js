@@ -20,11 +20,18 @@ app.use(cookieParser())
 
 import { userRouter } from './routes/user.routes.js'
 import { messageRouter } from './routes/message.routes.js'
+import { dashboardRouter } from "./routes/dashboard.routes.js";
 import { verifyJWT } from './middlewares/auth.middleware.js'
+import { paymentRouter } from './routes/payment.routes.js';
 
 app.use("/api/users", userRouter)
 
 app.use("/api/messages", messageRouter)
+
+app.use("/api/dashboard", dashboardRouter)
+app.use("/api/payments", paymentRouter);
+
+
 
 
 
